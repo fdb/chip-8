@@ -1,4 +1,5 @@
-use crate::Display;
+use crate::display::Display;
+use crate::keypad::Keypad;
 
 pub struct Cpu {
     // Program counter
@@ -15,6 +16,8 @@ pub struct Cpu {
     pub memory: [u8; 4096],
     // Display
     pub display: Display,
+    // Keypad
+    pub keypad: Keypad,
 }
 
 impl Cpu {
@@ -27,6 +30,7 @@ impl Cpu {
             stack: [0; 16],
             sp: 0,
             display: Display::new(),
+            keypad: Keypad::new(),
         }
     }
 
@@ -36,6 +40,8 @@ impl Cpu {
         self.i = 0;
         self.stack.fill(0);
         self.sp = 0;
+        self.display.clear();
+        self.keypad.reset();
     }
 
     pub fn step(&mut self) {
@@ -55,7 +61,7 @@ impl Cpu {
         let vy = self.v[y];
         let n = op_4 as u8;
 
-        println!("[{:04X}] op: {:04X}", self.pc, opcode);
+        // println!("[{:04X}] op: {:04X}", self.pc, opcode);
 
         // Match on the op and execute the instruction.
         match (op_1, op_2, op_3, op_4) {
@@ -68,8 +74,9 @@ impl Cpu {
             // 00EE - RET
             // Return from a subroutine.
             (0x0, 0x0, 0xE, 0xE) => {
-                self.pc = self.stack[self.sp as usize];
+                self.pc = self.stack[(self.sp - 1) as usize];
                 self.sp -= 1;
+                self.pc += 2;
             }
             // 1nnn - JP addr
             // Jump to location nnn.
@@ -87,6 +94,15 @@ impl Cpu {
                 self.pc = nnn;
             }
 
+            // 3xkk - SE Vx, byte
+            // Skip next instruction if Vx = kk.
+            (0x3, _, _, _) => {
+                if vx == kk {
+                    self.pc += 2;
+                }
+                self.pc += 2;
+            }
+
             // 4xkk - SNE Vx, byte
             // Skip next instruction if Vx != kk.
             (0x4, _, _, _) => {
@@ -100,6 +116,13 @@ impl Cpu {
             // Set Vx = kk.
             (0x6, _, _, _) => {
                 self.v[x] = kk;
+                self.pc += 2;
+            }
+
+            // 7xkk - ADD Vx, byte
+            // Set Vx = Vx + kk.
+            (0x7, _, _, _) => {
+                self.v[x] += kk;
                 self.pc += 2;
             }
 
@@ -120,7 +143,31 @@ impl Cpu {
             // Dxyn - DRW Vx, Vy, nibble
             // Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
             (0xD, _, _, _) => {
-                
+                for d in 0..n {
+                    let sprite = self.memory[(self.i + d as u16) as usize];
+                    self.display
+                        .draw_sprite(vx.into(), (vy + d) as usize, sprite);
+                }
+                self.pc += 2;
+            }
+
+            // Fx1E - ADD I, Vx
+            // Set I = I + Vx.
+            (0xF, _, 0x1, 0xE) => {
+                self.i += vx as u16;
+                self.pc += 2;
+            }
+
+            // Fx0A - LD Vx, K
+            // Wait for a key press, store the value of the key in Vx.
+            (0xF, _, 0x0, 0xA) => {
+                for key in 0..self.keypad.keys.len() {
+                    if self.keypad.is_pressed(key) {
+                        self.v[x] = key as u8;
+                        self.pc += 2;
+                        break;
+                    }
+                }
             }
 
             _ => println!("[{:04X}] - Unknown op: {:04X}", self.pc, opcode),
@@ -128,7 +175,7 @@ impl Cpu {
     }
 
     pub fn print_state(&self) {
-        println!("PC {:04X}", self.pc);
+        println!("PC {:04X}    I {:04X}", self.pc, self.i);
         for i in 0..4 {
             println!(
                 "V{:02}: {:02X}      V{:02}: {:02X}      V{:02}: {:02X}      V{:02}: {:02X}",
