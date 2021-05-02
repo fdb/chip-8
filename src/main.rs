@@ -30,9 +30,9 @@ fn main() {
     // A  S  D  F
     // Z  X  C  V
     let mut key_map: HashMap<Key, usize> = HashMap::new();
-    key_map.insert(Key::Key1, 0x0);
-    key_map.insert(Key::Key2, 0x1);
-    key_map.insert(Key::Key3, 0x2);
+    key_map.insert(Key::Key1, 0x1);
+    key_map.insert(Key::Key2, 0x2);
+    key_map.insert(Key::Key3, 0x3);
     key_map.insert(Key::Key4, 0xC);
     key_map.insert(Key::Q, 0x4);
     key_map.insert(Key::W, 0x5);
