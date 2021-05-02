@@ -6,12 +6,14 @@ pub struct Cpu {
     pub pc: u16,
     // Registers
     pub v: [u8; 16],
-    // Index register:
+    // Index register
     pub i: u16,
     // Stack
     pub stack: [u16; 16],
     // Stack pointer
     pub sp: u8,
+    // Delay timer
+    pub dt: u8,
     // Memory
     pub memory: [u8; 4096],
     // Display
@@ -29,6 +31,7 @@ impl Cpu {
             i: 0,
             stack: [0; 16],
             sp: 0,
+            dt: 0,
             display: Display::new(),
             keypad: Keypad::new(),
         }
@@ -40,6 +43,7 @@ impl Cpu {
         self.i = 0;
         self.stack.fill(0);
         self.sp = 0;
+        self.dt = 0;
         self.display.clear();
         self.keypad.reset();
     }
@@ -122,7 +126,7 @@ impl Cpu {
             // 7xkk - ADD Vx, byte
             // Set Vx = Vx + kk.
             (0x7, _, _, _) => {
-                self.v[x] += kk;
+                self.v[x] = self.v[x].wrapping_add(kk);
                 self.pc += 2;
             }
 
@@ -149,6 +153,21 @@ impl Cpu {
                         .draw_sprite(vx.into(), (vy + d) as usize, sprite);
                 }
                 self.pc += 2;
+            }
+
+            // ExA1 - SKNP Vx
+            // Skip next instruction if key with the value of Vx is not pressed.
+            (0xE, _, 0xA, 0x1) => {
+                if self.keypad.is_pressed(x) {
+                    self.pc += 2;
+                }
+                self.pc += 2;
+            }
+
+            // Fx15 - LD DT, Vx
+            // Set delay timer = Vx.
+            (0xF, _, 0x1, 0x5) => {
+                self.dt = vx;
             }
 
             // Fx1E - ADD I, Vx

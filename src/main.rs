@@ -83,7 +83,12 @@ fn main() {
         for (k, v) in &key_map {
             cpu.keypad.set_key(*v, window.is_key_down(*k));
         }
-        cpu.step();
+        if cpu.dt > 0 {
+            cpu.dt -= 1;
+        }
+        for _ in 0..10 {
+            cpu.step();
+        }
         for y in 0..display::HEIGHT {
             for x in 0..display::WIDTH {
                 let color: u32 = if cpu.display.get_pixel(x, y) {
